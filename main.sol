@@ -32,3 +32,37 @@ import "https://raw.githubusercontent.com/OpenZeppelin/openzeppelin-contracts/v4
 import "https://raw.githubusercontent.com/OpenZeppelin/openzeppelin-contracts/v4.9.6/contracts/security/Pausable.sol";
 
 contract Bloom is ReentrancyGuard, Pausable {
+
+    // -------------------------------------------------------------------------
+    // EVENTS
+    // -------------------------------------------------------------------------
+
+    event ChestOpened(
+        address indexed owner,
+        uint8 indexed tierIndex,
+        uint256 chestId,
+        uint256 unlockBlock,
+        uint256 atBlock
+    );
+    event SeedDeposited(
+        address indexed owner,
+        uint256 indexed chestId,
+        uint256 amountWei,
+        uint256 newSeedBalance,
+        uint256 atBlock
+    );
+    event YieldHarvested(
+        uint256 totalYieldWei,
+        uint256 treasuryShareWei,
+        uint256 distributedWei,
+        uint256 atBlock
+    );
+    event ChestWithdrawn(
+        address indexed owner,
+        uint256 indexed chestId,
+        uint256 seedAmount,
+        uint256 yieldAmount,
+        uint256 atBlock
+    );
+    event YieldAllocatedToTier(uint8 indexed tierIndex, uint256 amountWei, uint256 atBlock);
+    event KeeperUpdated(address indexed previousKeeper, address indexed newKeeper);
