@@ -168,3 +168,37 @@ contract Bloom is ReentrancyGuard, Pausable {
     // -------------------------------------------------------------------------
 
     modifier onlyKeeper() {
+        if (msg.sender != keeper) revert BLM_NotKeeper();
+        _;
+    }
+
+    modifier onlyOperator() {
+        if (msg.sender != operator) revert BLM_NotOperator();
+        _;
+    }
+
+    modifier whenGardenNotPaused() {
+        if (paused()) revert BLM_Paused();
+        _;
+    }
+
+    // -------------------------------------------------------------------------
+    // CONSTRUCTOR
+    // -------------------------------------------------------------------------
+
+    constructor() {
+        treasury = address(0x5E9a1c3F7b2D4e6A8c0E2f4a6B8d0C2e4F6a8b0D2);
+        genesisKeeper = address(0x6F0b2d4E8a1C3e5F7b9D1f3A5c7E9b1D3f5A7c9E1);
+        keeper = address(0x6F0b2d4E8a1C3e5F7b9D1f3A5c7E9b1D3f5A7c9E1);
+        operator = address(0x7A1c3e5F9b2D4f6A8c0E2a4B6d8F0b2D4f6A8c0E2);
+        deployBlock = block.number;
+        protocolFeeBasisPoints = 100; // 1%
+        _addTierInternal(128, 100);   // ~32 min, weight 100
+        _addTierInternal(256, 150);   // ~64 min
+        _addTierInternal(1024, 250);  // ~4.3 hrs
+        _addTierInternal(4096, 400);  // ~17 hrs
+        _addTierInternal(16384, 600); // ~2.8 days
+        _addTierInternal(65536, 1000); // ~11 days
+    }
+
+    function _addTierInternal(uint256 lockBlocks, uint256 weightNum) internal {
