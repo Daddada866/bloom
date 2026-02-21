@@ -236,3 +236,37 @@ contract Bloom is ReentrancyGuard, Pausable {
         if (_basis > BLOOM_MAX_FEE_BASIS) revert BLM_FeeBasisTooHigh();
         uint256 prev = protocolFeeBasisPoints;
         protocolFeeBasisPoints = _basis;
+        emit ProtocolFeeBasisSet(prev, _basis, block.number);
+    }
+
+    /// @notice Transfer keeper role. Operator only.
+    /// @param _newKeeper New keeper address (cannot be zero).
+    function setKeeper(address _newKeeper) external onlyOperator {
+        if (_newKeeper == address(0)) revert BLM_ZeroAddress();
+        address prev = keeper;
+        keeper = _newKeeper;
+        emit KeeperUpdated(prev, _newKeeper);
+    }
+
+    /// @notice Transfer operator role. Operator only.
+    /// @param _newOperator New operator address (cannot be zero).
+    function setOperator(address _newOperator) external onlyOperator {
+        if (_newOperator == address(0)) revert BLM_ZeroAddress();
+        address prev = operator;
+        operator = _newOperator;
+        emit OperatorUpdated(prev, _newOperator);
+    }
+
+    // -------------------------------------------------------------------------
+    // KEEPER: HARVEST
+    // -------------------------------------------------------------------------
+
+    /// @notice Submit new yield (ETH). Fee is taken to treasury; rest goes to pending buffer. Keeper only.
+    function harvest() external payable onlyKeeper whenGardenNotPaused nonReentrant {
+        if (msg.value == 0) revert BLM_HarvestZero();
+        uint256 totalYield = msg.value;
+        uint256 fee = (totalYield * protocolFeeBasisPoints) / BLOOM_BASIS_DENOM;
+        uint256 toDistribute = totalYield - fee;
+        treasuryBalance += fee;
+        pendingHarvestBuffer += toDistribute;
+        emit YieldHarvested(totalYield, fee, toDistribute, block.number);
