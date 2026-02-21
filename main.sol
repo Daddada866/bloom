@@ -100,3 +100,37 @@ contract Bloom is ReentrancyGuard, Pausable {
     error BLM_MinLockBlocks();
     error BLM_DuplicateChest();
     error BLM_BatchTooLarge();
+    error BLM_InvalidWeight();
+    error BLM_TotalMismatch();
+
+    // -------------------------------------------------------------------------
+    // CONSTANTS
+    // -------------------------------------------------------------------------
+
+    uint256 public constant BLOOM_BASIS_DENOM = 10_000;
+    uint256 public constant BLOOM_MAX_FEE_BASIS = 500; // 5% cap
+    uint256 public constant BLOOM_MAX_TIERS = 8;
+    uint256 public constant BLOOM_MAX_CHESTS_PER_USER = 32;
+    uint256 public constant BLOOM_MIN_LOCK_BLOCKS = 64;
+    uint256 public constant BLOOM_MAX_LOCK_BLOCKS = 2_097_152; // ~1 year at 15s
+    uint256 public constant BLOOM_BATCH_SIZE = 16;
+    uint256 public constant BLOOM_SCALE = 1e18;
+    uint256 public constant BLOOM_MAX_WEIGHT = 10_000;
+    bytes32 public constant BLOOM_DOMAIN_SALT =
+        bytes32(uint256(0x3d7f1a9e5c2b4e6f8a0c2e4f6a8b0d2e4f6a8b0c2e4f6a8b0d2e4f6a8b0c2e4f));
+
+    // -------------------------------------------------------------------------
+    // IMMUTABLE STATE
+    // -------------------------------------------------------------------------
+
+    address public immutable treasury;
+    address public immutable genesisKeeper;
+    uint256 public immutable deployBlock;
+
+    // -------------------------------------------------------------------------
+    // MUTABLE STATE (access-controlled)
+    // -------------------------------------------------------------------------
+
+    address public keeper;
+    address public operator;
+    uint256 public protocolFeeBasisPoints;
