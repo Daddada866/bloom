@@ -202,3 +202,37 @@ contract Bloom is ReentrancyGuard, Pausable {
     }
 
     function _addTierInternal(uint256 lockBlocks, uint256 weightNum) internal {
+        if (tierCount >= BLOOM_MAX_TIERS) return;
+        if (lockBlocks < BLOOM_MIN_LOCK_BLOCKS || lockBlocks > BLOOM_MAX_LOCK_BLOCKS) return;
+        lockTiers[tierCount] = LockTier({
+            lockBlocks: lockBlocks,
+            weightNumerator: weightNum,
+            totalSeedsInTier: 0,
+            accumulatedYieldPerSeedScaled: 0,
+            exists: true
+        });
+        tierCount++;
+    }
+
+    // -------------------------------------------------------------------------
+    // OPERATOR: PAUSE
+    // -------------------------------------------------------------------------
+
+    /// @notice Pause or unpause all user deposits and harvests. Operator only.
+    /// @param _paused True to pause, false to unpause.
+    function setPaused(bool _paused) external onlyOperator {
+        if (_paused) {
+            _pause();
+            emit GardenPaused(msg.sender, block.number);
+        } else {
+            _unpause();
+            emit GardenUnpaused(msg.sender, block.number);
+        }
+    }
+
+    /// @notice Set protocol fee in basis points (max BLOOM_MAX_FEE_BASIS). Operator only.
+    /// @param _basis New fee in basis points (e.g. 100 = 1%).
+    function setProtocolFeeBasisPoints(uint256 _basis) external onlyOperator {
+        if (_basis > BLOOM_MAX_FEE_BASIS) revert BLM_FeeBasisTooHigh();
+        uint256 prev = protocolFeeBasisPoints;
+        protocolFeeBasisPoints = _basis;
