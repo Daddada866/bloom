@@ -134,3 +134,37 @@ contract Bloom is ReentrancyGuard, Pausable {
     address public keeper;
     address public operator;
     uint256 public protocolFeeBasisPoints;
+    uint256 public totalSeedsStaked;
+    uint256 public totalYieldDistributed;
+    uint256 public treasuryBalance;
+    uint256 public pendingHarvestBuffer;
+
+    struct LockTier {
+        uint256 lockBlocks;
+        uint256 weightNumerator;   // for yield distribution
+        uint256 totalSeedsInTier;
+        uint256 accumulatedYieldPerSeedScaled; // scaled by 1e18
+        bool exists;
+    }
+
+    struct Chest {
+        address owner;
+        uint8 tierIndex;
+        uint256 seedBalance;
+        uint256 unlockBlock;
+        uint256 entryAccruedPerSeedScaled; // snapshot at deposit
+        uint256 chestId;
+        bool active;
+    }
+
+    uint8 public tierCount;
+    mapping(uint8 => LockTier) public lockTiers;
+    mapping(address => uint256) public userChestCount;
+    mapping(address => mapping(uint256 => Chest)) public userChests;
+    mapping(address => uint256) private _nextChestId;
+
+    // -------------------------------------------------------------------------
+    // MODIFIERS
+    // -------------------------------------------------------------------------
+
+    modifier onlyKeeper() {
