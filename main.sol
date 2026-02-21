@@ -304,3 +304,37 @@ contract Bloom is ReentrancyGuard, Pausable {
         if (tierIndex >= tierCount || !lockTiers[tierIndex].exists) revert BLM_InvalidTier();
         if (weightNumerator > BLOOM_MAX_WEIGHT) revert BLM_InvalidWeight();
         uint256 prev = lockTiers[tierIndex].weightNumerator;
+        lockTiers[tierIndex].weightNumerator = weightNumerator;
+        emit TierWeightUpdated(tierIndex, prev, weightNumerator, block.number);
+    }
+
+    // -------------------------------------------------------------------------
+    // INTERNAL: SAFE ETH SEND
+    // -------------------------------------------------------------------------
+
+    function _sendEth(address to, uint256 amount) internal {
+        if (amount == 0) return;
+        (bool ok,) = to.call{value: amount}("");
+        if (!ok) revert BLM_TransferFailed();
+    }
+
+    // -------------------------------------------------------------------------
+    // USER: OPEN CHEST (create lock bucket)
+    // -------------------------------------------------------------------------
+
+    /// @notice Open a single chest for a lock tier. Returns the new chest id.
+    function openChest(uint8 tierIndex) external whenGardenNotPaused nonReentrant returns (uint256 chestId) {
+        if (tierIndex >= tierCount || !lockTiers[tierIndex].exists) revert BLM_InvalidTier();
+        uint256 count = userChestCount[msg.sender];
+        if (count >= BLOOM_MAX_CHESTS_PER_USER) revert BLM_MaxChestsPerUser();
+        chestId = _nextChestId[msg.sender]++;
+        uint256 unlockBlock = block.number + lockTiers[tierIndex].lockBlocks;
+        userChests[msg.sender][chestId] = Chest({
+            owner: msg.sender,
+            tierIndex: tierIndex,
+            seedBalance: 0,
+            unlockBlock: unlockBlock,
+            entryAccruedPerSeedScaled: lockTiers[tierIndex].accumulatedYieldPerSeedScaled,
+            chestId: chestId,
+            active: true
+        });
