@@ -270,3 +270,37 @@ contract Bloom is ReentrancyGuard, Pausable {
         treasuryBalance += fee;
         pendingHarvestBuffer += toDistribute;
         emit YieldHarvested(totalYield, fee, toDistribute, block.number);
+    }
+
+    /// @notice Allocate pending harvest buffer to tiers by weight. Call after harvest(). Keeper only.
+    function allocateHarvest() external onlyKeeper whenGardenNotPaused nonReentrant {
+        uint256 toAlloc = pendingHarvestBuffer;
+        if (toAlloc == 0) return;
+        uint256 totalWeight = 0;
+        for (uint8 i = 0; i < tierCount; i++) {
+            if (lockTiers[i].exists && lockTiers[i].totalSeedsInTier > 0) {
+                totalWeight += lockTiers[i].weightNumerator;
+            }
+        }
+        if (totalWeight == 0) {
+            treasuryBalance += toAlloc;
+            pendingHarvestBuffer = 0;
+            return;
+        }
+        pendingHarvestBuffer = 0;
+        for (uint8 i = 0; i < tierCount; i++) {
+            LockTier storage tier = lockTiers[i];
+            if (!tier.exists || tier.totalSeedsInTier == 0) continue;
+            uint256 portion = (toAlloc * tier.weightNumerator) / totalWeight;
+            uint256 seeds = tier.totalSeedsInTier;
+            tier.accumulatedYieldPerSeedScaled += (portion * BLOOM_SCALE) / seeds;
+            totalYieldDistributed += portion;
+            emit YieldAllocatedToTier(i, portion, block.number);
+        }
+    }
+
+    /// @notice Keeper can adjust yield weight for a tier (higher weight = more yield share).
+    function setTierWeight(uint8 tierIndex, uint256 weightNumerator) external onlyKeeper whenGardenNotPaused {
+        if (tierIndex >= tierCount || !lockTiers[tierIndex].exists) revert BLM_InvalidTier();
+        if (weightNumerator > BLOOM_MAX_WEIGHT) revert BLM_InvalidWeight();
+        uint256 prev = lockTiers[tierIndex].weightNumerator;
