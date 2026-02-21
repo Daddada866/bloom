@@ -66,3 +66,37 @@ contract Bloom is ReentrancyGuard, Pausable {
     );
     event YieldAllocatedToTier(uint8 indexed tierIndex, uint256 amountWei, uint256 atBlock);
     event KeeperUpdated(address indexed previousKeeper, address indexed newKeeper);
+    event OperatorUpdated(address indexed previousOperator, address indexed newOperator);
+    event ProtocolFeeBasisSet(uint256 previousBasis, uint256 newBasis, uint256 atBlock);
+    event GardenPaused(address indexed by, uint256 atBlock);
+    event GardenUnpaused(address indexed by, uint256 atBlock);
+    event TreasuryWithdrawn(address indexed to, uint256 amountWei, uint256 atBlock);
+    event EmergencySweep(address indexed token, address indexed to, uint256 amountWei);
+    event TierWeightUpdated(uint8 indexed tierIndex, uint256 previousWeight, uint256 newWeight, uint256 atBlock);
+    event ChestOpenedBatch(address indexed owner, uint256[] chestIds, uint8[] tierIndices, uint256 atBlock);
+    event SeedDepositedBatch(address indexed owner, uint256[] chestIds, uint256 totalAmountWei, uint256 atBlock);
+    event ChestWithdrawnBatch(address indexed owner, uint256[] chestIds, uint256 totalSeedWei, uint256 totalYieldWei, uint256 atBlock);
+
+    // -------------------------------------------------------------------------
+    // ERRORS
+    // -------------------------------------------------------------------------
+
+    error BLM_ZeroDeposit();
+    error BLM_ZeroAddress();
+    error BLM_NotKeeper();
+    error BLM_NotOperator();
+    error BLM_TransferFailed();
+    error BLM_ChestLocked();
+    error BLM_ChestNotFound();
+    error BLM_NotChestOwner();
+    error BLM_InvalidTier();
+    error BLM_HarvestZero();
+    error BLM_Paused();
+    error BLM_FeeBasisTooHigh();
+    error BLM_WithdrawZero();
+    error BLM_NoTreasuryShare();
+    error BLM_ArrayLengthMismatch();
+    error BLM_MaxChestsPerUser();
+    error BLM_MinLockBlocks();
+    error BLM_DuplicateChest();
+    error BLM_BatchTooLarge();
