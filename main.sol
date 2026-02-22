@@ -950,3 +950,37 @@ contract Bloom is ReentrancyGuard, Pausable {
     // 50. BLOOM_MAX_FEE_BASIS. 500.
     // 51. BLOOM_MAX_TIERS. 8.
     // 52. BLOOM_MAX_CHESTS_PER_USER. 32.
+    // 53. BLOOM_MIN_LOCK_BLOCKS. 64.
+    // 54. BLOOM_MAX_LOCK_BLOCKS. 2097152.
+    // 55. BLOOM_BATCH_SIZE. 16.
+    // 56. BLOOM_SCALE. 1e18.
+    // 57. BLOOM_MAX_WEIGHT. 10000.
+    // 58. BLOOM_DOMAIN_SALT. bytes32 constant for domain separation.
+    // 59. Event ChestOpened(owner, tierIndex, chestId, unlockBlock, atBlock).
+    // 60. Event SeedDeposited(owner, chestId, amountWei, newSeedBalance, atBlock).
+    // 61. Event YieldHarvested(totalYieldWei, treasuryShareWei, distributedWei, atBlock).
+    // 62. Event ChestWithdrawn(owner, chestId, seedAmount, yieldAmount, atBlock).
+    // 63. Event YieldAllocatedToTier(tierIndex, amountWei, atBlock).
+    // 64. Event KeeperUpdated(previousKeeper, newKeeper).
+    // 65. Event OperatorUpdated(previousOperator, newOperator).
+    // 66. Event ProtocolFeeBasisSet(previousBasis, newBasis, atBlock).
+    // 67. Event GardenPaused(by, atBlock).
+    // 68. Event GardenUnpaused(by, atBlock).
+    // 69. Event TreasuryWithdrawn(to, amountWei, atBlock).
+    // 70. Event EmergencySweep(token, to, amountWei).
+    // 71. Event TierWeightUpdated(tierIndex, previousWeight, newWeight, atBlock).
+    // 72. Event ChestOpenedBatch(owner, chestIds, tierIndices, atBlock).
+    // 73. Event SeedDepositedBatch(owner, chestIds, totalAmountWei, atBlock).
+    // 74. Event ChestWithdrawnBatch(owner, chestIds, totalSeedWei, totalYieldWei, atBlock).
+    // 75. Error BLM_ZeroDeposit.
+    // 76. Error BLM_ZeroAddress.
+    // 77. Error BLM_NotKeeper.
+    // 78. Error BLM_NotOperator.
+    // 79. Error BLM_TransferFailed.
+    // 80. Error BLM_ChestLocked.
+    // 81. Error BLM_ChestNotFound.
+    // 82. Error BLM_NotChestOwner.
+    // 83. Error BLM_InvalidTier.
+    // 84. Error BLM_HarvestZero.
+    // 85. Error BLM_Paused.
+    // 86. Error BLM_FeeBasisTooHigh.
