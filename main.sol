@@ -916,3 +916,37 @@ contract Bloom is ReentrancyGuard, Pausable {
     // 16. pendingYield(user, chestId) -> uint256. View. Pending yield for one chest.
     // 17. getTotalPendingYieldForUser(user) -> uint256. View. Sum pending yield for user.
     // 18. getUserActiveChestIds(user) -> uint256[]. View. Active chest ids.
+    // 19. getChest(user, chestId) -> (owner, tierIndex, seedBalance, unlockBlock, active). View.
+    // 20. getGlobalStats() -> (totalStaked, totalYield, treasuryBal, pendingHarvest). View.
+    // 21. getTier(tierIndex) -> (lockBlocks, weightNumerator, totalSeedsInTier, accumulatedYieldPerSeedScaled, exists). View.
+    // 22. getTiersBatch(from, to) -> (lockBlocksArr, weightNumerators, totalSeedsInTierArr, accumulatedYieldScaledArr, existsArr). View.
+    // 23. blocksUntilUnlock(user, chestId) -> uint256. View. Blocks until unlock (0 if unlocked).
+    // 24. getTotalSeedsForUser(user) -> uint256. View. Sum of seed balances.
+    // 25. getChestsFullForUser(user) -> (chestIds, tierIndices, seedBalances, unlockBlocks, pendingYields). View.
+    // 26. getUserSummary(user) -> (totalSeeds, totalPendingYield, activeChestCount). View.
+    // 27. getContractBalance() -> uint256. View. address(this).balance.
+    // 28. estimateYieldShareForTier(tierIndex, harvestAmountWei) -> uint256. View. Hypothetical tier share.
+    // 29. isChestLocked(user, chestId) -> bool. View.
+    // 30. getNextChestIdForUser(user) -> uint256. View.
+    // 31. simulateWithdraw(user, chestId) -> (seedOut, yieldOut). View.
+    // 32. getTierLockBlocks(tierIndex) -> uint256. View.
+    // 33. isPaused() -> bool. View.
+    // 34. receive(). Fallback for direct ETH; adds to pendingHarvestBuffer.
+    // 35. treasury. Immutable. Protocol fee recipient.
+    // 36. genesisKeeper. Immutable. Keeper at deploy.
+    // 37. deployBlock. Immutable. Block number at deploy.
+    // 38. keeper. Mutable. Can harvest and allocate and set tier weights.
+    // 39. operator. Mutable. Can pause, set fee, set keeper/operator, sweep token.
+    // 40. protocolFeeBasisPoints. Mutable. Fee from each harvest (max 500).
+    // 41. totalSeedsStaked. Total principal in all active chests.
+    // 42. totalYieldDistributed. Cumulative yield allocated.
+    // 43. treasuryBalance. Accumulated fees.
+    // 44. pendingHarvestBuffer. ETH not yet allocated.
+    // 45. tierCount. Number of tiers (set in constructor).
+    // 46. lockTiers(i). Tier i: lockBlocks, weightNumerator, totalSeedsInTier, accumulatedYieldPerSeedScaled, exists.
+    // 47. userChestCount(user). Number of active chests (decremented on withdraw).
+    // 48. userChests(user)(chestId). Chest: owner, tierIndex, seedBalance, unlockBlock, entryAccruedPerSeedScaled, chestId, active.
+    // 49. BLOOM_BASIS_DENOM. 10000.
+    // 50. BLOOM_MAX_FEE_BASIS. 500.
+    // 51. BLOOM_MAX_TIERS. 8.
+    // 52. BLOOM_MAX_CHESTS_PER_USER. 32.
