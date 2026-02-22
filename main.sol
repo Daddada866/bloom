@@ -848,3 +848,37 @@ contract Bloom is ReentrancyGuard, Pausable {
     // - seed: increases chest seedBalance and tier totalSeedsInTier and totalSeedsStaked; no change to entryAccruedPerSeedScaled.
     // - withdraw: requires block.number >= unlockBlock; computes yield from (accumulated - entry) * balance; then zeroes chest and updates totals.
     // - seedBatch: msg.value must equal sum(amounts); each amount is applied to corresponding chestId; all chests must be owned by msg.sender and active.
+    // - withdrawBatch: processes each chestId; skips non-existent, inactive, or locked chests; sums seed and yield and sends once at end.
+    // - harvest: payable; splits msg.value into fee (to treasuryBalance) and toDistribute (to pendingHarvestBuffer).
+    // - allocateHarvest: reads pendingHarvestBuffer; computes totalWeight over tiers with totalSeedsInTier > 0; splits toDistribute by weight; updates each tier's accumulatedYieldPerSeedScaled.
+    // - getChestsFullForUser: allocates arrays of size = count of active chests; fills with id, tier, balance, unlockBlock, pending yield.
+    // - getUserSummary: single loop over user's chest ids; sums seeds and pending yield; counts active chests.
+    // - estimateYieldShareForTier: hypothetical harvest amount; after fee, distributable share for given tier by current weights and tier participation.
+    // - BLOOM_DOMAIN_SALT: used for domain separation if integrating with signatures or external systems; not used in current logic.
+    // - genesisKeeper: stored at deploy; can be used for recovery or logging; keeper role is mutable via setKeeper.
+    // - deployBlock: immutable; useful for age checks or time-based logic in extensions.
+    // - getContractBalance: returns address(this).balance; should equal totalSeedsStaked + pendingHarvestBuffer + treasuryBalance under normal operation.
+    // - withdrawTreasury: any address may call; sends treasuryBalance to immutable treasury; zeroes treasuryBalance.
+    // - sweepToken: low-level call to token.transfer(to, amount); use for ERC20 only; no native ETH in this path.
+    // - receive: fallback for direct ETH send; adds to pendingHarvestBuffer so keeper can allocate later.
+    // - Modifier onlyKeeper: used for harvest, allocateHarvest, setTierWeight.
+    // - Modifier onlyOperator: used for setPaused, setProtocolFeeBasisPoints, setKeeper, setOperator, sweepToken.
+    // - Modifier whenGardenNotPaused: used for harvest, allocateHarvest, setTierWeight, openChest, openChestBatch, seed, seedBatch, withdraw, withdrawBatch.
+    // - Modifier nonReentrant: used for harvest, allocateHarvest, openChest, openChestBatch, seed, seedBatch, withdraw, withdrawBatch, withdrawTreasury.
+    // - _sendEth: internal helper; does not revert on amount 0; reverts on transfer failure.
+    // - _addTierInternal: called only in constructor; adds tier with lockBlocks and weightNumerator; skips if tierCount or lockBlocks out of range.
+    // - Tier indices: 0..tierCount-1; getTier(i) and getTiersBatch(0, tierCount) for full tier list.
+    // - Chest ids per user: 0 to _nextChestId[user]-1; not all are active; getUserActiveChestIds returns only active ids.
+    // - Fixed-point: accumulatedYieldPerSeedScaled and entryAccruedPerSeedScaled are in units of (wei per seed) * BLOOM_SCALE to avoid rounding loss.
+    // - Withdraw rounding: yield = (balance * (accumulated - entry)) / BLOOM_SCALE; integer division may truncate; dust remains in contract.
+    // - Batch limits: BLOOM_BATCH_SIZE 16 for openChestBatch, seedBatch, withdrawBatch; BLOOM_MAX_CHESTS_PER_USER 32 for total chests per user.
+    // - No minimum deposit: seed() and seedBatch accept any msg.value > 0 (or sum for batch).
+    // - No maximum deposit: constrained only by gas and contract balance.
+    // - Pause effect: when paused, harvest, allocateHarvest, setTierWeight, openChest, openChestBatch, seed, seedBatch, withdraw, withdrawBatch revert with BLM_Paused.
+    // - withdraw when paused: currently withdraw and withdrawBatch use whenGardenNotPaused; if desired, can remove pause check for withdraw to allow exit during pause (design choice).
+    // - Reentrancy: external ETH send (withdraw, withdrawTreasury) and optional token transfer (sweepToken) are after state updates; ReentrancyGuard prevents reentry.
+    // - Frontend: recommend calling getTiersBatch(0, tierCount) once to show tiers; getUserSummary(user) for portfolio; getChestsFullForUser(user) for chest list with pending yield.
+    // - Keeper workflow: 1) receive yield off-chain; 2) call harvest{value: yield}(); 3) call allocateHarvest(); yield is then accruing to chests.
+    // - No time lock on operator/keeper changes; instant effect. For production, consider TimelockController for operator.
+    // - No deposit delay or withdrawal delay beyond lock period per tier.
+    // - No blacklist or whitelist; any address can open chests and seed (when not paused).
