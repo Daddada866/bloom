@@ -474,3 +474,37 @@ contract Bloom is ReentrancyGuard, Pausable {
     /// @notice Returns accrued yield for a user's chest (not yet withdrawn).
     function pendingYield(address user, uint256 chestId) external view returns (uint256) {
         Chest storage c = userChests[user][chestId];
+        if (!c.active || c.seedBalance == 0) return 0;
+        LockTier storage tier = lockTiers[c.tierIndex];
+        uint256 accruedPerSeed = tier.accumulatedYieldPerSeedScaled - c.entryAccruedPerSeedScaled;
+        return (c.seedBalance * accruedPerSeed) / BLOOM_SCALE;
+    }
+
+    /// @notice Total pending yield across all active chests for a user.
+    function getTotalPendingYieldForUser(address user) external view returns (uint256 total) {
+        uint256 nextId = _nextChestId[user];
+        for (uint256 i = 0; i < nextId; i++) {
+            Chest storage c = userChests[user][i];
+            if (!c.active || c.seedBalance == 0) continue;
+            LockTier storage tier = lockTiers[c.tierIndex];
+            uint256 accruedPerSeed = tier.accumulatedYieldPerSeedScaled - c.entryAccruedPerSeedScaled;
+            total += (c.seedBalance * accruedPerSeed) / BLOOM_SCALE;
+        }
+        return total;
+    }
+
+    /// @notice List of active chest ids for a user (ids that are active and may have balance).
+    function getUserActiveChestIds(address user) external view returns (uint256[] memory ids) {
+        uint256 nextId = _nextChestId[user];
+        uint256 count = 0;
+        for (uint256 i = 0; i < nextId; i++) {
+            if (userChests[user][i].active) count++;
+        }
+        ids = new uint256[](count);
+        uint256 j = 0;
+        for (uint256 i = 0; i < nextId; i++) {
+            if (userChests[user][i].active) {
+                ids[j] = i;
+                j++;
+            }
+        }
