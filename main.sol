@@ -542,3 +542,37 @@ contract Bloom is ReentrancyGuard, Pausable {
         uint256 pendingHarvest
     ) {
         return (
+            totalSeedsStaked,
+            totalYieldDistributed,
+            treasuryBalance,
+            pendingHarvestBuffer
+        );
+    }
+
+    /// @notice Single tier info.
+    /// @param tierIndex Tier index (0 to tierCount-1).
+    /// @return lockBlocks Number of blocks seeds are locked.
+    /// @return weightNumerator Weight for harvest distribution (relative to other tiers).
+    /// @return totalSeedsInTier Total principal in this tier across all chests.
+    /// @return accumulatedYieldPerSeedScaled Cumulative yield per seed (scaled by BLOOM_SCALE).
+    /// @return exists True if tier was initialized.
+    function getTier(uint8 tierIndex) external view returns (
+        uint256 lockBlocks,
+        uint256 weightNumerator,
+        uint256 totalSeedsInTier,
+        uint256 accumulatedYieldPerSeedScaled,
+        bool exists
+    ) {
+        LockTier storage t = lockTiers[tierIndex];
+        return (
+            t.lockBlocks,
+            t.weightNumerator,
+            t.totalSeedsInTier,
+            t.accumulatedYieldPerSeedScaled,
+            t.exists
+        );
+    }
+
+    /// @notice Batch fetch tier data for indices [fromIndex, toIndex). toIndex exclusive.
+    /// @param fromIndex First tier index (inclusive).
+    /// @param toIndex Last tier index (exclusive); clamped to tierCount.
