@@ -984,3 +984,37 @@ contract Bloom is ReentrancyGuard, Pausable {
     // 84. Error BLM_HarvestZero.
     // 85. Error BLM_Paused.
     // 86. Error BLM_FeeBasisTooHigh.
+    // 87. Error BLM_WithdrawZero.
+    // 88. Error BLM_NoTreasuryShare.
+    // 89. Error BLM_ArrayLengthMismatch.
+    // 90. Error BLM_MaxChestsPerUser.
+    // 91. Error BLM_MinLockBlocks.
+    // 92. Error BLM_DuplicateChest.
+    // 93. Error BLM_BatchTooLarge.
+    // 94. Error BLM_InvalidWeight.
+    // 95. Error BLM_TotalMismatch.
+    // 96. _nextChestId(user). Private. Next chest id to assign.
+    // 97. _sendEth(to, amount). Internal. Safe ETH transfer.
+    // 98. _addTierInternal(lockBlocks, weightNum). Internal. Constructor-only tier add.
+    // 99. onlyKeeper modifier.
+    // 100. onlyOperator modifier.
+    // 101. whenGardenNotPaused modifier.
+    // 102. nonReentrant from ReentrancyGuard.
+    // 103. paused() from Pausable.
+    // 104. Constructor sets treasury, genesisKeeper, keeper, operator, deployBlock, protocolFeeBasisPoints, six tiers.
+    // 105. Tier 0: 128 blocks, weight 100. Tier 1: 256, 150. Tier 2: 1024, 250. Tier 3: 4096, 400. Tier 4: 16384, 600. Tier 5: 65536, 1000.
+    // --- End reference ---
+    //
+    // Testing / audit checklist (non-exhaustive):
+    // - Deploy with zero args; verify treasury, keeper, operator, tierCount, six tiers with expected lockBlocks/weights.
+    // - Open chest: openChest(0); verify ChestOpened, userChestCount, chest data; openChest(99) should revert BLM_InvalidTier.
+    // - Seed: seed(chestId) with value; verify SeedDeposited, seedBalance, totalSeedsStaked; seed(0) with 0 value reverts BLM_ZeroDeposit.
+    // - Withdraw before unlock: withdraw(chestId) reverts BLM_ChestLocked.
+    // - Harvest: as keeper, harvest{value: 1 ether}(); verify YieldHarvested, treasuryBalance, pendingHarvestBuffer; allocateHarvest(); verify YieldAllocatedToTier, accumulatedYieldPerSeedScaled increased.
+    // - Withdraw after unlock: advance blocks; withdraw(chestId); verify ChestWithdrawn, balance increase, chest inactive, totalSeedsStaked decreased.
+    // - Non-keeper harvest reverts BLM_NotKeeper; non-operator setPaused reverts BLM_NotOperator.
+    // - setProtocolFeeBasisPoints(501) reverts BLM_FeeBasisTooHigh.
+    // - openChestBatch([0,1,2]); verify three chests, correct unlockBlocks; seedBatch with matching amounts and msg.value.
+    // - withdrawBatch with mixed locked/unlocked; only unlocked withdrawn; single ETH transfer.
+    // - getTotalPendingYieldForUser, getUserSummary, getChestsFullForUser consistency.
+    // - simulateWithdraw matches actual withdraw amounts.
