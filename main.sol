@@ -372,3 +372,37 @@ contract Bloom is ReentrancyGuard, Pausable {
         emit ChestOpenedBatch(msg.sender, chestIds, tiers, block.number);
         return chestIds;
     }
+
+    // -------------------------------------------------------------------------
+    // USER: DEPOSIT (seed)
+    // -------------------------------------------------------------------------
+
+    /// @notice Deposit ETH into an existing chest. msg.value must match sum of amounts if using batch.
+    function seed(uint256 chestId) external payable whenGardenNotPaused nonReentrant {
+        if (msg.value == 0) revert BLM_ZeroDeposit();
+        Chest storage c = userChests[msg.sender][chestId];
+        if (!c.active || c.owner != msg.sender) revert BLM_ChestNotFound();
+        LockTier storage tier = lockTiers[c.tierIndex];
+        c.seedBalance += msg.value;
+        tier.totalSeedsInTier += msg.value;
+        totalSeedsStaked += msg.value;
+        emit SeedDeposited(msg.sender, chestId, msg.value, c.seedBalance, block.number);
+    }
+
+    /// @notice Deposit into multiple chests. amounts length must match chestIds; msg.value must equal sum(amounts).
+    function seedBatch(uint256[] calldata chestIds, uint256[] calldata amounts) external payable whenGardenNotPaused nonReentrant {
+        uint256 n = chestIds.length;
+        if (n == 0 || n > BLOOM_BATCH_SIZE) revert BLM_BatchTooLarge();
+        if (amounts.length != n) revert BLM_ArrayLengthMismatch();
+        uint256 total = 0;
+        for (uint256 i = 0; i < n; i++) {
+            total += amounts[i];
+        }
+        if (msg.value != total) revert BLM_TotalMismatch();
+        for (uint256 i = 0; i < n; i++) {
+            if (amounts[i] == 0) continue;
+            Chest storage c = userChests[msg.sender][chestIds[i]];
+            if (!c.active || c.owner != msg.sender) revert BLM_ChestNotFound();
+            LockTier storage tier = lockTiers[c.tierIndex];
+            c.seedBalance += amounts[i];
+            tier.totalSeedsInTier += amounts[i];
