@@ -610,3 +610,37 @@ contract Bloom is ReentrancyGuard, Pausable {
     }
 
     /// @notice Estimate blocks until unlock for a chest (0 if already unlocked).
+    function blocksUntilUnlock(address user, uint256 chestId) external view returns (uint256) {
+        Chest storage c = userChests[user][chestId];
+        if (!c.active) return 0;
+        if (block.number >= c.unlockBlock) return 0;
+        return c.unlockBlock - block.number;
+    }
+
+    /// @notice Total seed balance across all active chests for a user.
+    function getTotalSeedsForUser(address user) external view returns (uint256 total) {
+        uint256 nextId = _nextChestId[user];
+        for (uint256 i = 0; i < nextId; i++) {
+            if (userChests[user][i].active) {
+                total += userChests[user][i].seedBalance;
+            }
+        }
+        return total;
+    }
+
+    /// @notice Full snapshot of all active chests for a user: ids, tiers, balances, unlock blocks, pending yields.
+    function getChestsFullForUser(address user) external view returns (
+        uint256[] memory chestIds,
+        uint8[] memory tierIndices,
+        uint256[] memory seedBalances,
+        uint256[] memory unlockBlocks,
+        uint256[] memory pendingYields
+    ) {
+        uint256 nextId = _nextChestId[user];
+        uint256 count = 0;
+        for (uint256 i = 0; i < nextId; i++) {
+            if (userChests[user][i].active) count++;
+        }
+        chestIds = new uint256[](count);
+        tierIndices = new uint8[](count);
+        seedBalances = new uint256[](count);
