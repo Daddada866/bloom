@@ -644,3 +644,37 @@ contract Bloom is ReentrancyGuard, Pausable {
         chestIds = new uint256[](count);
         tierIndices = new uint8[](count);
         seedBalances = new uint256[](count);
+        unlockBlocks = new uint256[](count);
+        pendingYields = new uint256[](count);
+        uint256 j = 0;
+        for (uint256 i = 0; i < nextId; i++) {
+            Chest storage c = userChests[user][i];
+            if (!c.active) continue;
+            chestIds[j] = i;
+            tierIndices[j] = c.tierIndex;
+            seedBalances[j] = c.seedBalance;
+            unlockBlocks[j] = c.unlockBlock;
+            LockTier storage tier = lockTiers[c.tierIndex];
+            uint256 accruedPerSeed = tier.accumulatedYieldPerSeedScaled - c.entryAccruedPerSeedScaled;
+            pendingYields[j] = (c.seedBalance * accruedPerSeed) / BLOOM_SCALE;
+            j++;
+        }
+        return (chestIds, tierIndices, seedBalances, unlockBlocks, pendingYields);
+    }
+
+    /// @notice One-call user summary: total seeds, total pending yield, number of active chests.
+    function getUserSummary(address user) external view returns (
+        uint256 totalSeeds,
+        uint256 totalPendingYield,
+        uint256 activeChestCount
+    ) {
+        totalSeeds = 0;
+        totalPendingYield = 0;
+        activeChestCount = 0;
+        uint256 nextId = _nextChestId[user];
+        for (uint256 i = 0; i < nextId; i++) {
+            Chest storage c = userChests[user][i];
+            if (!c.active) continue;
+            activeChestCount++;
+            totalSeeds += c.seedBalance;
+            LockTier storage tier = lockTiers[c.tierIndex];
