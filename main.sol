@@ -440,3 +440,37 @@ contract Bloom is ReentrancyGuard, Pausable {
     function withdrawBatch(uint256[] calldata chestIds) external nonReentrant whenGardenNotPaused {
         uint256 n = chestIds.length;
         if (n == 0 || n > BLOOM_BATCH_SIZE) revert BLM_BatchTooLarge();
+        uint256 totalSeedOut = 0;
+        uint256 totalYieldOut = 0;
+        for (uint256 i = 0; i < n; i++) {
+            Chest storage c = userChests[msg.sender][chestIds[i]];
+            if (!c.active || c.owner != msg.sender || c.seedBalance == 0) continue;
+            if (block.number < c.unlockBlock) continue;
+            uint256 seeds = c.seedBalance;
+            LockTier storage tier = lockTiers[c.tierIndex];
+            uint256 accruedPerSeed = tier.accumulatedYieldPerSeedScaled - c.entryAccruedPerSeedScaled;
+            uint256 yieldAmount = (seeds * accruedPerSeed) / BLOOM_SCALE;
+            c.seedBalance = 0;
+            c.active = false;
+            tier.totalSeedsInTier -= seeds;
+            totalSeedsStaked -= seeds;
+            userChestCount[msg.sender] -= 1;
+            totalSeedOut += seeds;
+            totalYieldOut += yieldAmount;
+            emit ChestWithdrawn(msg.sender, chestIds[i], seeds, yieldAmount, block.number);
+        }
+        if (totalSeedOut + totalYieldOut > 0) {
+            _sendEth(msg.sender, totalSeedOut + totalYieldOut);
+        }
+        if (totalSeedOut != 0 || totalYieldOut != 0) {
+            emit ChestWithdrawnBatch(msg.sender, chestIds, totalSeedOut, totalYieldOut, block.number);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // VIEW: PENDING YIELD FOR CHEST
+    // -------------------------------------------------------------------------
+
+    /// @notice Returns accrued yield for a user's chest (not yet withdrawn).
+    function pendingYield(address user, uint256 chestId) external view returns (uint256) {
+        Chest storage c = userChests[user][chestId];
