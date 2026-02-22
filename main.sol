@@ -338,3 +338,37 @@ contract Bloom is ReentrancyGuard, Pausable {
             chestId: chestId,
             active: true
         });
+        userChestCount[msg.sender] = count + 1;
+        emit ChestOpened(msg.sender, tierIndex, chestId, unlockBlock, block.number);
+        return chestId;
+    }
+
+    /// @notice Open multiple chests in one tx. tierIndices length must be <= BLOOM_BATCH_SIZE.
+    function openChestBatch(uint8[] calldata tierIndices) external whenGardenNotPaused nonReentrant returns (uint256[] memory chestIds) {
+        uint256 n = tierIndices.length;
+        if (n == 0 || n > BLOOM_BATCH_SIZE) revert BLM_BatchTooLarge();
+        if (userChestCount[msg.sender] + n > BLOOM_MAX_CHESTS_PER_USER) revert BLM_MaxChestsPerUser();
+        chestIds = new uint256[](n);
+        uint8[] memory tiers = new uint8[](n);
+        for (uint256 i = 0; i < n; i++) {
+            uint8 ti = tierIndices[i];
+            if (ti >= tierCount || !lockTiers[ti].exists) revert BLM_InvalidTier();
+            uint256 cid = _nextChestId[msg.sender]++;
+            uint256 unlockBlock = block.number + lockTiers[ti].lockBlocks;
+            userChests[msg.sender][cid] = Chest({
+                owner: msg.sender,
+                tierIndex: ti,
+                seedBalance: 0,
+                unlockBlock: unlockBlock,
+                entryAccruedPerSeedScaled: lockTiers[ti].accumulatedYieldPerSeedScaled,
+                chestId: cid,
+                active: true
+            });
+            chestIds[i] = cid;
+            tiers[i] = ti;
+            emit ChestOpened(msg.sender, ti, cid, unlockBlock, block.number);
+        }
+        userChestCount[msg.sender] += n;
+        emit ChestOpenedBatch(msg.sender, chestIds, tiers, block.number);
+        return chestIds;
+    }
