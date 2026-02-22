@@ -712,3 +712,37 @@ contract Bloom is ReentrancyGuard, Pausable {
     }
 
     /// @notice Returns next chest id that would be assigned to user (for UI).
+    function getNextChestIdForUser(address user) external view returns (uint256) {
+        return _nextChestId[user];
+    }
+
+    /// @notice Simulate withdraw for a chest: returns (seedOut, yieldOut) without modifying state.
+    /// @param user Owner of the chest.
+    /// @param chestId Chest id.
+    /// @return seedOut Principal that would be withdrawn.
+    /// @return yieldOut Accrued yield that would be withdrawn.
+    function simulateWithdraw(address user, uint256 chestId) external view returns (uint256 seedOut, uint256 yieldOut) {
+        Chest storage c = userChests[user][chestId];
+        if (!c.active || c.owner != user || c.seedBalance == 0) return (0, 0);
+        seedOut = c.seedBalance;
+        LockTier storage tier = lockTiers[c.tierIndex];
+        uint256 accruedPerSeed = tier.accumulatedYieldPerSeedScaled - c.entryAccruedPerSeedScaled;
+        yieldOut = (c.seedBalance * accruedPerSeed) / BLOOM_SCALE;
+        return (seedOut, yieldOut);
+    }
+
+    /// @notice Returns lock duration in blocks for a tier (for display).
+    function getTierLockBlocks(uint8 tierIndex) external view returns (uint256) {
+        if (tierIndex >= tierCount || !lockTiers[tierIndex].exists) return 0;
+        return lockTiers[tierIndex].lockBlocks;
+    }
+
+    /// @notice Whether the garden is currently paused.
+    function isPaused() external view returns (bool) {
+        return paused();
+    }
+
+    // -------------------------------------------------------------------------
+    // TREASURY WITHDRAW (treasury is immutable; anyone can trigger send to treasury)
+    // -------------------------------------------------------------------------
+
