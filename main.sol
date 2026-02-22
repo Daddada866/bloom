@@ -576,3 +576,37 @@ contract Bloom is ReentrancyGuard, Pausable {
     /// @notice Batch fetch tier data for indices [fromIndex, toIndex). toIndex exclusive.
     /// @param fromIndex First tier index (inclusive).
     /// @param toIndex Last tier index (exclusive); clamped to tierCount.
+    /// @return lockBlocksArr Lock duration per tier.
+    /// @return weightNumerators Weight per tier.
+    /// @return totalSeedsInTierArr Total seeds per tier.
+    /// @return accumulatedYieldScaledArr Accumulated yield per seed scaled per tier.
+    /// @return existsArr Exists flag per tier.
+    function getTiersBatch(uint8 fromIndex, uint8 toIndex) external view returns (
+        uint256[] memory lockBlocksArr,
+        uint256[] memory weightNumerators,
+        uint256[] memory totalSeedsInTierArr,
+        uint256[] memory accumulatedYieldScaledArr,
+        bool[] memory existsArr
+    ) {
+        if (toIndex > tierCount) toIndex = tierCount;
+        if (fromIndex >= toIndex) {
+            return (new uint256[](0), new uint256[](0), new uint256[](0), new uint256[](0), new bool[](0));
+        }
+        uint256 n = toIndex - fromIndex;
+        lockBlocksArr = new uint256[](n);
+        weightNumerators = new uint256[](n);
+        totalSeedsInTierArr = new uint256[](n);
+        accumulatedYieldScaledArr = new uint256[](n);
+        existsArr = new bool[](n);
+        for (uint256 i = 0; i < n; i++) {
+            LockTier storage t = lockTiers[uint8(fromIndex + i)];
+            lockBlocksArr[i] = t.lockBlocks;
+            weightNumerators[i] = t.weightNumerator;
+            totalSeedsInTierArr[i] = t.totalSeedsInTier;
+            accumulatedYieldScaledArr[i] = t.accumulatedYieldPerSeedScaled;
+            existsArr[i] = t.exists;
+        }
+        return (lockBlocksArr, weightNumerators, totalSeedsInTierArr, accumulatedYieldScaledArr, existsArr);
+    }
+
+    /// @notice Estimate blocks until unlock for a chest (0 if already unlocked).
