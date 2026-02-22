@@ -780,3 +780,37 @@ contract Bloom is ReentrancyGuard, Pausable {
     // State layout summary:
     // - Immutable: treasury, genesisKeeper, deployBlock. Set once in constructor.
     // - Mutable roles: keeper, operator. Updatable by operator (or self for operator).
+    // - protocolFeeBasisPoints: fee taken from each harvest; cap BLOOM_MAX_FEE_BASIS.
+    // - totalSeedsStaked: sum of all seedBalance across active chests. Decreases on withdraw.
+    // - totalYieldDistributed: running sum of yield allocated to tiers (for analytics).
+    // - treasuryBalance: accumulated protocol share from harvests; withdrawable to treasury.
+    // - pendingHarvestBuffer: ETH from harvest() not yet allocated; allocateHarvest() pushes to tiers.
+    // - lockTiers[tierIndex]: lock duration (blocks), weight for distribution, total seeds in tier,
+    //   and accumulatedYieldPerSeedScaled (per-seed accrual, scaled by BLOOM_SCALE).
+    // - userChests[user][chestId]: one chest per (user, chestId). active=false after withdraw.
+    // - _nextChestId[user]: next id to assign; chest ids are 0..nextId-1 (some may be inactive).
+    //
+    // Invariants:
+    // - address(this).balance >= totalSeedsStaked + pendingHarvestBuffer + treasuryBalance.
+    // - For each tier, sum over users' chests in that tier of seedBalance == totalSeedsInTier.
+    // - totalSeedsStaked == sum over all tiers of totalSeedsInTier.
+    // - accumulatedYieldPerSeedScaled increases only in allocateHarvest; entryAccruedPerSeedScaled
+    //   is set at open/seed so that pending yield = (accumulated - entry) * balance / BLOOM_SCALE.
+    //
+    // Harvest flow:
+    // 1. Keeper sends ETH via harvest(). Fee (protocolFeeBasisPoints) goes to treasuryBalance;
+    //    remainder goes to pendingHarvestBuffer.
+    // 2. Keeper calls allocateHarvest(). pendingHarvestBuffer is split by tier weights (only tiers
+    //    with totalSeedsInTier > 0). Each tier's share is converted to per-seed accrual and added
+    //    to accumulatedYieldPerSeedScaled. pendingHarvestBuffer becomes 0.
+    //
+    // Withdraw flow:
+    // User calls withdraw(chestId). Reverts if chest locked (block.number < unlockBlock). Computes
+    // yield as (accumulatedYieldPerSeedScaled - entryAccruedPerSeedScaled) * seedBalance / BLOOM_SCALE.
+    // Sends seedBalance + yield to user; marks chest inactive; updates tier and global totals.
+    //
+    // Edge cases:
+    // - If allocateHarvest() is called when no tier has seeds, pending buffer is sent to treasury.
+    // - receive() adds incoming ETH to pendingHarvestBuffer (so accidental sends can be allocated).
+    // - Batch withdraw skips locked or invalid chests; only withdraws unlocked ones.
+    //
