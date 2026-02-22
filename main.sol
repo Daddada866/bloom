@@ -746,3 +746,37 @@ contract Bloom is ReentrancyGuard, Pausable {
     // TREASURY WITHDRAW (treasury is immutable; anyone can trigger send to treasury)
     // -------------------------------------------------------------------------
 
+    /// @notice Send accumulated protocol fees to the immutable treasury address.
+    function withdrawTreasury() external nonReentrant {
+        uint256 amount = treasuryBalance;
+        if (amount == 0) revert BLM_NoTreasuryShare();
+        treasuryBalance = 0;
+        _sendEth(treasury, amount);
+        emit TreasuryWithdrawn(treasury, amount, block.number);
+    }
+
+    // -------------------------------------------------------------------------
+    // EMERGENCY: SWEEP ERC20 (if sent by mistake; operator only)
+    // -------------------------------------------------------------------------
+
+    /// @notice Rescue ERC20 tokens sent to this contract by mistake. Operator only.
+    function sweepToken(address token, address to, uint256 amount) external onlyOperator {
+        if (to == address(0)) revert BLM_ZeroAddress();
+        (bool ok,) = token.call(
+            abi.encodeWithSignature("transfer(address,uint256)", to, amount)
+        );
+        if (!ok) revert BLM_TransferFailed();
+        emit EmergencySweep(token, to, amount);
+    }
+
+    receive() external payable {
+        pendingHarvestBuffer += msg.value;
+    }
+
+    // =========================================================================
+    // DESIGN NOTES (no executable code below; for auditors and integrators)
+    // =========================================================================
+    //
+    // State layout summary:
+    // - Immutable: treasury, genesisKeeper, deployBlock. Set once in constructor.
+    // - Mutable roles: keeper, operator. Updatable by operator (or self for operator).
