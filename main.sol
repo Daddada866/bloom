@@ -1018,3 +1018,37 @@ contract Bloom is ReentrancyGuard, Pausable {
     // - withdrawBatch with mixed locked/unlocked; only unlocked withdrawn; single ETH transfer.
     // - getTotalPendingYieldForUser, getUserSummary, getChestsFullForUser consistency.
     // - simulateWithdraw matches actual withdraw amounts.
+    // - Pause: setPaused(true); harvest/seed/withdraw revert BLM_Paused; setPaused(false) restores.
+    // - withdrawTreasury: verify treasuryBalance sent to treasury, zeroed.
+    // - Reentrancy: mock contract reentering on receive; should be blocked by nonReentrant.
+    // - getContractBalance >= totalSeedsStaked + pendingHarvestBuffer + treasuryBalance.
+    // - setTierWeight(tierIndex, w); allocateHarvest; verify tier share uses new weight.
+    // - getUserActiveChestIds and getChestsFullForUser return same count; ids match.
+    // - getNextChestIdForUser increases after openChest; unchanged after seed or withdraw.
+    // - blocksUntilUnlock decreases over blocks; 0 after unlock.
+    // - isChestLocked true until unlockBlock, false after.
+    // - receive() sends ETH; pendingHarvestBuffer increases; allocateHarvest distributes it.
+    // - sweepToken: operator sends ERC20 to contract; sweepToken recovers to specified address.
+    // - Max chests: open 32 chests; 33rd openChest reverts BLM_MaxChestsPerUser.
+    // - openChestBatch length > 16 reverts BLM_BatchTooLarge.
+    // - seedBatch: lengths mismatch revert BLM_ArrayLengthMismatch; msg.value != sum(amounts) revert BLM_TotalMismatch.
+    // - getTiersBatch(0, tierCount) returns all tiers; getTiersBatch(1, 1) returns empty arrays.
+    // - estimateYieldShareForTier: with one tier having seeds, share equals (harvest - fee) for that tier.
+    // - Multiple users: open/seed/withdraw per user; totals sum correctly; tier totalSeedsInTier sums across users.
+    // - getGlobalStats: totalStaked matches sum of getTotalSeedsForUser over all users (or single user test).
+    // - Entry snapshot: open chest, harvest+allocate, seed same chest; second seed gets same entryAccruedPerSeedScaled as at open; yield accrues from allocation.
+    // - Zero tier seeds: allocateHarvest when no tier has seeds sends buffer to treasury.
+    // - setKeeper/setOperator: new address can perform role; old cannot.
+    // --- End checklist ---
+    //
+    // Gas notes (approximate; measure on target chain):
+    // - openChest: one SSTORE for chest, one for userChestCount, one for _nextChestId; event. Moderate.
+    // - openChestBatch: N chests in one tx; saves (N-1) * (base tx + 21000) vs N separate openChest. Use when N >= 2.
+    // - seed: two SSTOREs (chest, tier), one for totalSeedsStaked; event. Low.
+    // - seedBatch: loop over N; N chest updates, N tier updates; one totalSeedsStaked update; events. Prefer over N seeds when N > 1.
+    // - withdraw: multiple SSTOREs (chest zeroed, tier decrement, totalSeedsStaked), ETH transfer, event. Moderate.
+    // - withdrawBatch: similar per chest; one transfer at end. Use when withdrawing 2+ chests.
+    // - harvest: SSTOREs for treasuryBalance and pendingHarvestBuffer; event. Low.
+    // - allocateHarvest: loop over tierCount (6); multiple SSTOREs per tier; events. Depends on tierCount.
+    // - getChestsFullForUser: two loops over _nextChestId[user]; memory arrays; no SSTORE. View; no gas for caller on static call.
+    // - getUserSummary: one loop; view. getTotalPendingYieldForUser, getTotalSeedsForUser similar.
