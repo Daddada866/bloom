@@ -814,3 +814,37 @@ contract Bloom is ReentrancyGuard, Pausable {
     // - receive() adds incoming ETH to pendingHarvestBuffer (so accidental sends can be allocated).
     // - Batch withdraw skips locked or invalid chests; only withdraws unlocked ones.
     //
+    // Gas considerations:
+    // - openChestBatch and seedBatch reduce tx count when creating/funding many chests.
+    // - getUserActiveChestIds and getChestsFullForUser iterate up to _nextChestId[user]; cap is
+    //   BLOOM_MAX_CHESTS_PER_USER so loop is bounded.
+    // - getTiersBatch(from, to) bounds iteration to (to - from) <= tierCount.
+    //
+    // Security:
+    // - ReentrancyGuard on all functions that send ETH or change balance then call external.
+    // - Pausable: operator can pause; harvest/seed/withdraw/open respect whenGardenNotPaused.
+    // - Treasury cannot be changed; no proxy or upgrade.
+    // - sweepToken is for accidental ERC20 sends only; operator must specify token and amount.
+    //
+    // Tier weights: higher weight means more share of each harvest for that tier. Weights are
+    // relative (e.g. 100 and 200 => 1/3 and 2/3 of distributable yield). Only tiers with
+    // totalSeedsInTier > 0 receive allocation. setTierWeight() allows keeper to rebalance.
+    //
+    // Constants: BLOOM_BASIS_DENOM 10000 for basis points; BLOOM_SCALE 1e18 for fixed-point
+    // yield per seed. BLOOM_MAX_CHESTS_PER_USER 32 and BLOOM_BATCH_SIZE 16 limit batch sizes.
+    // BLOOM_MIN_LOCK_BLOCKS and BLOOM_MAX_LOCK_BLOCKS constrain tier lock duration at init.
+    //
+    // Events: all major state changes emit events (ChestOpened, SeedDeposited, YieldHarvested,
+    // ChestWithdrawn, etc.) with indexed params where appropriate for indexing and filters.
+    //
+    // Errors: custom errors (BLM_*) save gas vs require strings. Use exact error in catch/tests.
+    //
+    // Constructor: treasury 0x5E9a1c3F7b2D4e6A8c0E2f4a6B8d0C2e4F6a8b0D2, keeper 0x6F0b2d4E8a1C3e5F7b9D1f3A5c7E9b1D3f5A7c9E1,
+    // operator 0x7A1c3e5F9b2D4f6A8c0E2a4B6d8F0b2D4f6A8c0E2. Six tiers are created with increasing
+    // lock periods and weights. Replace these addresses for mainnet deployment with real multisig/EOA.
+    //
+    // --- Additional implementation notes ---
+    // - openChest: assigns chestId from _nextChestId[msg.sender] and increments; unlockBlock = block.number + tier.lockBlocks.
+    // - seed: increases chest seedBalance and tier totalSeedsInTier and totalSeedsStaked; no change to entryAccruedPerSeedScaled.
+    // - withdraw: requires block.number >= unlockBlock; computes yield from (accumulated - entry) * balance; then zeroes chest and updates totals.
+    // - seedBatch: msg.value must equal sum(amounts); each amount is applied to corresponding chestId; all chests must be owned by msg.sender and active.
