@@ -406,3 +406,37 @@ contract Bloom is ReentrancyGuard, Pausable {
             LockTier storage tier = lockTiers[c.tierIndex];
             c.seedBalance += amounts[i];
             tier.totalSeedsInTier += amounts[i];
+            totalSeedsStaked += amounts[i];
+            emit SeedDeposited(msg.sender, chestIds[i], amounts[i], c.seedBalance, block.number);
+        }
+        emit SeedDepositedBatch(msg.sender, chestIds, msg.value, block.number);
+    }
+
+    // -------------------------------------------------------------------------
+    // USER: WITHDRAW (after unlock)
+    // -------------------------------------------------------------------------
+
+    /// @notice Withdraw principal and accrued yield from one chest after unlock.
+    function withdraw(uint256 chestId) external nonReentrant whenGardenNotPaused {
+        Chest storage c = userChests[msg.sender][chestId];
+        if (!c.active || c.owner != msg.sender) revert BLM_ChestNotFound();
+        if (block.number < c.unlockBlock) revert BLM_ChestLocked();
+        uint256 seeds = c.seedBalance;
+        if (seeds == 0) revert BLM_WithdrawZero();
+        LockTier storage tier = lockTiers[c.tierIndex];
+        uint256 accruedPerSeed = tier.accumulatedYieldPerSeedScaled - c.entryAccruedPerSeedScaled;
+        uint256 yieldAmount = (seeds * accruedPerSeed) / BLOOM_SCALE;
+        c.seedBalance = 0;
+        c.active = false;
+        tier.totalSeedsInTier -= seeds;
+        totalSeedsStaked -= seeds;
+        userChestCount[msg.sender] -= 1;
+        uint256 totalOut = seeds + yieldAmount;
+        _sendEth(msg.sender, totalOut);
+        emit ChestWithdrawn(msg.sender, chestId, seeds, yieldAmount, block.number);
+    }
+
+    /// @notice Withdraw multiple chests in one tx. Only unlocked chests are withdrawn.
+    function withdrawBatch(uint256[] calldata chestIds) external nonReentrant whenGardenNotPaused {
+        uint256 n = chestIds.length;
+        if (n == 0 || n > BLOOM_BATCH_SIZE) revert BLM_BatchTooLarge();
