@@ -882,3 +882,37 @@ contract Bloom is ReentrancyGuard, Pausable {
     // - No time lock on operator/keeper changes; instant effect. For production, consider TimelockController for operator.
     // - No deposit delay or withdrawal delay beyond lock period per tier.
     // - No blacklist or whitelist; any address can open chests and seed (when not paused).
+    // - No per-user or global deposit cap in this version.
+    // - getNextChestIdForUser: next id to be assigned; existing chest ids are 0..nextId-1.
+    // - isChestLocked: true if chest exists, active, and block.number < unlockBlock.
+    // - blocksUntilUnlock: 0 if chest inactive or already unlocked; otherwise unlockBlock - block.number.
+    // - simulateWithdraw: returns (seedBalance, pendingYield) for a chest without state change; useful for UI preview.
+    // - getTierLockBlocks: convenience view for tier lock duration in blocks.
+    // - isPaused: wraps OpenZeppelin paused() for external callers.
+    // - All public state variables (treasury, genesisKeeper, deployBlock, keeper, operator, protocolFeeBasisPoints, totalSeedsStaked, totalYieldDistributed, treasuryBalance, pendingHarvestBuffer, tierCount) are read by external UIs.
+    // - lockTiers(tierIndex) and userChests(user)(chestId) are public mappings; Solidity generates getters for single key.
+    // - Error handling: use try/catch in frontend to map BLM_* errors to user-friendly messages.
+    // - Chain support: contract is chain-agnostic; block.number is used for lock; block time varies by chain (e.g. ~12s Ethereum, ~2s BSC).
+    // - No oracle dependency; all data is on-chain. Yield source is off-chain (keeper pushes via harvest).
+    // - Upgrade: none; immutable treasury and no proxy. Deploy new Bloom and migrate by withdrawing all and re-depositing elsewhere if needed.
+    // --- End of implementation notes ---
+    //
+    // Reference: function and role index (for quick lookup)
+    // 1. openChest(tierIndex) -> chestId. User. Opens one chest for tier.
+    // 2. openChestBatch(tierIndices) -> chestIds. User. Opens multiple chests.
+    // 3. seed(chestId). User. Payable; deposit into one chest.
+    // 4. seedBatch(chestIds, amounts). User. Payable; deposit into many; msg.value = sum(amounts).
+    // 5. withdraw(chestId). User. Withdraw one chest (principal + yield) when unlocked.
+    // 6. withdrawBatch(chestIds). User. Withdraw multiple unlocked chests.
+    // 7. harvest(). Keeper. Payable; submit yield; fee to treasury, rest to buffer.
+    // 8. allocateHarvest(). Keeper. Allocate buffer to tiers by weight.
+    // 9. setTierWeight(tierIndex, weightNumerator). Keeper. Change tier weight.
+    // 10. setPaused(_paused). Operator. Pause or unpause.
+    // 11. setProtocolFeeBasisPoints(_basis). Operator. Set fee (cap 500 bp).
+    // 12. setKeeper(_newKeeper). Operator. Transfer keeper.
+    // 13. setOperator(_newOperator). Operator. Transfer operator.
+    // 14. withdrawTreasury(). Anyone. Send treasuryBalance to treasury address.
+    // 15. sweepToken(token, to, amount). Operator. Rescue ERC20.
+    // 16. pendingYield(user, chestId) -> uint256. View. Pending yield for one chest.
+    // 17. getTotalPendingYieldForUser(user) -> uint256. View. Sum pending yield for user.
+    // 18. getUserActiveChestIds(user) -> uint256[]. View. Active chest ids.
