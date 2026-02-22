@@ -508,3 +508,37 @@ contract Bloom is ReentrancyGuard, Pausable {
                 j++;
             }
         }
+        return ids;
+    }
+
+    /// @notice Full chest snapshot for a user and chest id.
+    /// @param user Owner address.
+    /// @param chestId Chest id.
+    /// @return owner Chest owner (same as user).
+    /// @return tierIndex Lock tier index.
+    /// @return seedBalance Principal staked in this chest.
+    /// @return unlockBlock Block number when chest becomes withdrawable.
+    /// @return active True if chest exists and has not been withdrawn.
+    function getChest(address user, uint256 chestId) external view returns (
+        address owner,
+        uint8 tierIndex,
+        uint256 seedBalance,
+        uint256 unlockBlock,
+        bool active
+    ) {
+        Chest storage c = userChests[user][chestId];
+        return (c.owner, c.tierIndex, c.seedBalance, c.unlockBlock, c.active);
+    }
+
+    /// @notice Global stats: total staked, total yield distributed, treasury balance, pending harvest buffer.
+    /// @return totalStaked Sum of all seed balances in active chests.
+    /// @return totalYield Cumulative yield allocated to tiers so far.
+    /// @return treasuryBal Protocol fees awaiting withdrawal to treasury.
+    /// @return pendingHarvest ETH in buffer not yet allocated to tiers.
+    function getGlobalStats() external view returns (
+        uint256 totalStaked,
+        uint256 totalYield,
+        uint256 treasuryBal,
+        uint256 pendingHarvest
+    ) {
+        return (
