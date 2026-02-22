@@ -678,3 +678,37 @@ contract Bloom is ReentrancyGuard, Pausable {
             activeChestCount++;
             totalSeeds += c.seedBalance;
             LockTier storage tier = lockTiers[c.tierIndex];
+            uint256 accruedPerSeed = tier.accumulatedYieldPerSeedScaled - c.entryAccruedPerSeedScaled;
+            totalPendingYield += (c.seedBalance * accruedPerSeed) / BLOOM_SCALE;
+        }
+        return (totalSeeds, totalPendingYield, activeChestCount);
+    }
+
+    /// @notice Raw contract ETH balance (seeds + harvest buffer + treasury balance).
+    function getContractBalance() external view returns (uint256) {
+        return address(this).balance;
+    }
+
+    /// @notice If a hypothetical harvest of `harvestAmountWei` were allocated now, this tier's share (wei).
+    function estimateYieldShareForTier(uint8 tierIndex, uint256 harvestAmountWei) external view returns (uint256) {
+        if (tierIndex >= tierCount || !lockTiers[tierIndex].exists) return 0;
+        uint256 totalWeight = 0;
+        for (uint8 i = 0; i < tierCount; i++) {
+            if (lockTiers[i].exists && lockTiers[i].totalSeedsInTier > 0) {
+                totalWeight += lockTiers[i].weightNumerator;
+            }
+        }
+        if (totalWeight == 0) return 0;
+        uint256 fee = (harvestAmountWei * protocolFeeBasisPoints) / BLOOM_BASIS_DENOM;
+        uint256 toDistribute = harvestAmountWei - fee;
+        return (toDistribute * lockTiers[tierIndex].weightNumerator) / totalWeight;
+    }
+
+    /// @notice Check whether a chest is still locked (true = locked).
+    function isChestLocked(address user, uint256 chestId) external view returns (bool) {
+        Chest storage c = userChests[user][chestId];
+        if (!c.active) return false;
+        return block.number < c.unlockBlock;
+    }
+
+    /// @notice Returns next chest id that would be assigned to user (for UI).
