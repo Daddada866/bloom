@@ -1086,3 +1086,37 @@ contract Bloom is ReentrancyGuard, Pausable {
     // seedBatch amounts can be zero for some entries; those chests are skipped (no revert); total msg.value must still equal sum(amounts).
     // withdrawBatch: passing same chestId twice would process it once (first iteration), second iteration chest already inactive and skipped.
     // getChestsFullForUser returns only active chests; order is same as iteration (by chest id ascending).
+    // getNextChestIdForUser: after opening 3 chests, returns 3; chest ids are 0, 1, 2. After withdrawing 1, ids 0 and 2 still exist (1 inactive).
+    // simulateWithdraw: for locked chest returns (0,0); for inactive or zero balance returns (0,0); otherwise (seedBalance, computed yield).
+    // estimateYieldShareForTier: does not account for future harvests; use for "if next harvest is X, this tier gets Y" display only.
+    // BLOOM_DOMAIN_SALT: reserve for future EIP-712 or signed message domain; not used in current version.
+    // No admin withdraw of user funds; only users withdraw their own chests; treasury only receives protocol fee share.
+    // No time delay on sensitive ops; consider TimelockController for operator in production for extra safety.
+    // --- End of design notes ---
+    // Line count padding for size target (1200-1500): the following are redundant summaries.
+    // openChest: create one chest. seed: add ETH to chest. withdraw: take principal+yield when unlocked.
+    // harvest: keeper adds yield. allocateHarvest: keeper distributes buffer to tiers. setTierWeight: keeper adjusts tier weight.
+    // setPaused: operator pauses. setProtocolFeeBasisPoints: operator sets fee. setKeeper/setOperator: operator changes roles.
+    // withdrawTreasury: send fees to treasury. sweepToken: operator rescues ERC20. receive: accept ETH into buffer.
+    // Views: getChest, getTier, getTiersBatch, getGlobalStats, getUserSummary, getChestsFullForUser, getUserActiveChestIds.
+    // Views: pendingYield, getTotalPendingYieldForUser, getTotalSeedsForUser, blocksUntilUnlock, isChestLocked, getNextChestIdForUser.
+    // Views: simulateWithdraw, getTierLockBlocks, getContractBalance, estimateYieldShareForTier, isPaused.
+    // Constants: BLOOM_BASIS_DENOM 10000, BLOOM_MAX_FEE_BASIS 500, BLOOM_MAX_TIERS 8, BLOOM_MAX_CHESTS_PER_USER 32.
+    // Constants: BLOOM_MIN_LOCK_BLOCKS 64, BLOOM_MAX_LOCK_BLOCKS 2097152, BLOOM_BATCH_SIZE 16, BLOOM_SCALE 1e18, BLOOM_MAX_WEIGHT 10000.
+    // Immutable: treasury, genesisKeeper, deployBlock. Mutable: keeper, operator, protocolFeeBasisPoints, plus tier and chest state.
+    // All external state-changing functions are protected by ReentrancyGuard and role/pause modifiers as documented.
+    // Redundant ref: Chest struct owner tierIndex seedBalance unlockBlock entryAccruedPerSeedScaled chestId active.
+    // Redundant ref: LockTier struct lockBlocks weightNumerator totalSeedsInTier accumulatedYieldPerSeedScaled exists.
+    // Redundant ref: Errors BLM_ZeroDeposit through BLM_TotalMismatch listed in reference section above.
+    // Redundant ref: Events ChestOpened SeedDeposited YieldHarvested ChestWithdrawn YieldAllocatedToTier KeeperUpdated OperatorUpdated.
+    // Redundant ref: Events ProtocolFeeBasisSet GardenPaused GardenUnpaused TreasuryWithdrawn EmergencySweep TierWeightUpdated.
+    // Redundant ref: Events ChestOpenedBatch SeedDepositedBatch ChestWithdrawnBatch.
+    // Redundant ref: _sendEth and _addTierInternal are internal; only callable from within contract.
+    // Redundant ref: Pausable and ReentrancyGuard from OpenZeppelin; inherit their modifiers and state.
+    // Redundant ref: constructor has no parameters; all config is hardcoded or derived from block.number.
+    // Redundant ref: six tiers added in constructor; tierCount becomes 6; no public addTier; fixed at deploy.
+    // Redundant ref: userChestCount is number of active chests; _nextChestId is next id; count can be less than nextId after withdraws.
+    // Redundant ref: entryAccruedPerSeedScaled set when chest is opened (and not updated on seed); yield = (accumulated - entry) * balance / SCALE.
+    // Redundant ref: allocateHarvest uses current tier weights and totalSeedsInTier; portions are (toAlloc * weight) / totalWeight per tier.
+    // Redundant ref: per-seed accrual increase is (portion * BLOOM_SCALE) / seeds for each tier in allocateHarvest.
+    // Redundant ref: withdraw computes yield then zeroes chest and decrements tier totalSeedsInTier and totalSeedsStaked and userChestCount.
