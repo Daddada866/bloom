@@ -1052,3 +1052,37 @@ contract Bloom is ReentrancyGuard, Pausable {
     // - allocateHarvest: loop over tierCount (6); multiple SSTOREs per tier; events. Depends on tierCount.
     // - getChestsFullForUser: two loops over _nextChestId[user]; memory arrays; no SSTORE. View; no gas for caller on static call.
     // - getUserSummary: one loop; view. getTotalPendingYieldForUser, getTotalSeedsForUser similar.
+    // - getTiersBatch: one loop (toIndex - fromIndex); view.
+    // - getUserActiveChestIds: two loops (count then fill); view.
+    // - Bounded loops: tierCount <= 8; user chests <= 32; batch size <= 16. No unbounded iteration.
+    //
+    // Deployment (mainnet):
+    // - Compile with Solidity 0.8.20+ and optimizer enabled (e.g. runs 200). Verify constructor addresses.
+    // - Replace treasury with multisig or safe; keeper with yield source bot or multisig; operator with governance or multisig.
+    // - After deploy: no further setup required; users can openChest and seed immediately (unless paused).
+    // - Optional: send initial yield via harvest + allocateHarvest to bootstrap APY display.
+    // - Verify contract on block explorer; wire frontend to contract address and ABI.
+    // - Monitor: totalSeedsStaked, pendingHarvestBuffer, treasuryBalance; alert on large imbalance vs address(this).balance.
+    //
+    // Addresses used in constructor (replace for production):
+    // treasury = 0x5E9a1c3F7b2D4e6A8c0E2f4a6B8d0C2e4F6a8b0D2
+    // genesisKeeper = 0x6F0b2d4E8a1C3e5F7b9D1f3A5c7E9b1D3f5A7c9E1
+    // keeper = 0x6F0b2d4E8a1C3e5F7b9D1f3A5c7E9b1D3f5A7c9E1
+    // operator = 0x7A1c3e5F9b2D4f6A8c0E2a4B6d8F0b2D4f6A8c0E2
+    // These are example addresses; generate new ones for each deployment and do not reuse across contracts.
+    //
+    // Tier display names (suggested for UI; not stored on-chain): Short 32m, Medium 1h, Long 4h, Day 17h, Week 2.8d, Month 11d.
+    // Lock blocks at ~15s/block: 128=32min, 256=64min, 1024=4.3h, 4096=17h, 16384=2.8d, 65536=11d.
+    // Weight scale is arbitrary; ratio matters. 100:150:250:400:600:1000 gives higher yield to longer locks.
+    // No slashing or penalty; only reward is yield. Withdraw always returns principal + accrued yield (or principal only if no harvest yet).
+    // Contract does not implement ERC20; it is ETH-only. Wrapped asset support would require a separate wrapper contract.
+    // Frontend should handle chainId and show "Unsupported network" if not deployed on current chain.
+    // For multi-chain: deploy one Bloom per chain; same constructor pattern; different treasury/keeper/operator per chain if desired.
+    // Event indexing: index owner and tierIndex for ChestOpened; owner and chestId for SeedDeposited/ChestWithdrawn; filter by user for dashboards.
+    // Historical yield: totalYieldDistributed increases each allocateHarvest; diff over time gives yield in period; divide by totalSeedsStaked for APY proxy.
+    // Pause does not affect withdraw in current implementation; if operator wants to freeze withdrawals, they would need a separate flag (not implemented).
+    // ReentrancyGuard is critical: withdraw and withdrawTreasury send ETH; without guard, malicious receive() could reenter and double-withdraw.
+    // Checks-Effects-Interactions: we update state (zero chest, decrement totals) before _sendEth in withdraw; same in withdrawTreasury.
+    // seedBatch amounts can be zero for some entries; those chests are skipped (no revert); total msg.value must still equal sum(amounts).
+    // withdrawBatch: passing same chestId twice would process it once (first iteration), second iteration chest already inactive and skipped.
+    // getChestsFullForUser returns only active chests; order is same as iteration (by chest id ascending).
